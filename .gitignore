@@ -42,3 +42,22 @@ Network Trash Folder
 Temporary Items
 .apdisk
 .jenkins-external
+
+# AmneziaWG Configuration Files
+# Never commit real configuration files with private keys
+*.conf
+!*.conf.example
+
+# Docker volumes and data
+volumes/
+data/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+*.log
