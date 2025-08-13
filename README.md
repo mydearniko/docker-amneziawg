@@ -1,7 +1,7 @@
 # Docker AmneziaWG
 
 [![Docker Build](https://github.com/AYastrebov/docker-amneziawg/actions/workflows/docker-build.yml/badge.svg)](https://github.com/AYastrebov/docker-amneziawg/actions/workflows/docker-build.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/ghcr.io/ayastrebov/docker-amneziawg?logo=docker)](https://github.com/AYastrebov/docker-amneziawg/pkgs/container/docker-amneziawg)
+[![GitHub Container Registry](https://img.shields.io/badge/ghcr.io-docker--amneziawg-blue?logo=docker)](https://github.com/AYastrebov/docker-amneziawg/pkgs/container/docker-amneziawg)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/AYastrebov/docker-amneziawg)](https://github.com/AYastrebov/docker-amneziawg/releases)
 [![License](https://img.shields.io/github/license/AYastrebov/docker-amneziawg)](LICENSE)
 
