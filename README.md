@@ -112,21 +112,58 @@ services:
 
 ### AmneziaWG Obfuscation
 
-All obfuscation parameters are optional. If not set, random values are generated for anti-DPI protection.
+AmneziaWG extends WireGuard with obfuscation features to bypass Deep Packet Inspection (DPI). All parameters are optional - if not set, random values are generated automatically. **Important**: Server and all clients must use identical obfuscation values.
 
-| Variable | Description |
-|----------|-------------|
-| `AWG_JC` | Junk packet count (recommended: 3-8) |
-| `AWG_JMIN` | Minimum junk packet size in bytes |
-| `AWG_JMAX` | Maximum junk packet size in bytes |
-| `AWG_S1` | Init packet padding size |
-| `AWG_S2` | Response packet padding size |
-| `AWG_S3` | Cookie message padding size (default: 0) |
-| `AWG_S4` | Transport packet padding size (default: 0) |
-| `AWG_H1` | Header obfuscation value 1 |
-| `AWG_H2` | Header obfuscation value 2 |
-| `AWG_H3` | Header obfuscation value 3 |
-| `AWG_H4` | Header obfuscation value 4 |
+#### Junk Packets
+
+Junk packets are random data sent before each handshake to confuse traffic analysis.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWG_JC` | Random 3-8 | Number of junk packets to send before handshake initiation |
+| `AWG_JMIN` | Random 40-80 | Minimum junk packet size in bytes |
+| `AWG_JMAX` | Random 500-1000 | Maximum junk packet size in bytes (must be ≥ JMIN) |
+
+#### Packet Padding
+
+Padding bytes are added to handshake and transport messages to obscure their true size.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWG_S1` | Random 15-150 | Bytes added to handshake initiation message |
+| `AWG_S2` | Random 15-150 | Bytes added to handshake response message |
+| `AWG_S3` | 0 | Bytes added to cookie reply message |
+| `AWG_S4` | 0 | Bytes added to transport data messages |
+
+#### Header Obfuscation
+
+These values modify the 4-byte type field at the start of each packet, making traffic unrecognizable as WireGuard.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWG_H1` | Random | Header value for handshake initiation (32-bit integer) |
+| `AWG_H2` | Random | Header value for handshake response (32-bit integer) |
+| `AWG_H3` | Random | Header value for cookie reply (32-bit integer) |
+| `AWG_H4` | Random | Header value for transport data (32-bit integer) |
+
+#### Recommended Values
+
+For most DPI bypass scenarios, the auto-generated random values work well. If you need specific values (e.g., to match an existing setup):
+
+```yaml
+environment:
+  - AWG_JC=4        # 3-8 recommended
+  - AWG_JMIN=50
+  - AWG_JMAX=1000
+  - AWG_S1=86
+  - AWG_S2=12
+  - AWG_S3=0        # Usually not needed
+  - AWG_S4=0        # Usually not needed
+  - AWG_H1=1755269708
+  - AWG_H2=2101520157
+  - AWG_H3=1829552136
+  - AWG_H4=2016351429
+```
 
 ### LinuxServer Standard
 
