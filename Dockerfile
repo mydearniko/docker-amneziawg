@@ -17,12 +17,17 @@ RUN CGO_ENABLED=1 go build -ldflags '-linkmode external -extldflags "-fno-PIC -s
 # ============================================================================
 FROM alpine:3.21 AS tools-builder
 
-RUN apk add --no-cache git build-base linux-headers
+RUN apk add --no-cache git build-base linux-headers bash
 
 WORKDIR /src
 RUN git clone https://github.com/amnezia-vpn/amneziawg-tools.git .
 WORKDIR /src/src
-RUN make && make install DESTDIR=/tools-install
+# Build awg binary and install awg-quick script
+RUN make && \
+    make install DESTDIR=/tools-install && \
+    mkdir -p /tools-install/usr/bin && \
+    cp /src/src/wg-quick/linux.bash /tools-install/usr/bin/awg-quick && \
+    chmod +x /tools-install/usr/bin/awg-quick
 
 # ============================================================================
 # Stage 3: Runtime image using LinuxServer base

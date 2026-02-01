@@ -364,7 +364,7 @@ if [[ -n "$PEERS" ]]; then
     if [[ "$REGEN_CONFIGS" == "true" ]]; then
         generate_server_config
 
-        local peer_num=2
+        peer_num=2
         for peer_id in "${PEER_LIST[@]}"; do
             generate_peer_config "$peer_id" "$peer_num"
             ((peer_num++))
