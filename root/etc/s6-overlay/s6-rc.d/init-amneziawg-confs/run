@@ -55,11 +55,17 @@ generate_awg_params() {
     # S3: Cookie message padding, S4: Transport packet padding
     AWG_S3=${AWG_S3:-0}
     AWG_S4=${AWG_S4:-0}
-    # H1-H4: Header obfuscation values (random 32-bit integers)
-    AWG_H1=${AWG_H1:-$(shuf -i 1-2147483647 -n 1)}
-    AWG_H2=${AWG_H2:-$(shuf -i 1-2147483647 -n 1)}
-    AWG_H3=${AWG_H3:-$(shuf -i 1-2147483647 -n 1)}
-    AWG_H4=${AWG_H4:-$(shuf -i 1-2147483647 -n 1)}
+    # H1-H4: Header obfuscation values (random 32-bit integers, min 5 to avoid WireGuard values 1-4)
+    AWG_H1=${AWG_H1:-$(shuf -i 5-2147483647 -n 1)}
+    AWG_H2=${AWG_H2:-$(shuf -i 5-2147483647 -n 1)}
+    AWG_H3=${AWG_H3:-$(shuf -i 5-2147483647 -n 1)}
+    AWG_H4=${AWG_H4:-$(shuf -i 5-2147483647 -n 1)}
+    # I1-I5: Custom Protocol Signature packets (AWG 2.0, empty by default)
+    AWG_I1=${AWG_I1:-}
+    AWG_I2=${AWG_I2:-}
+    AWG_I3=${AWG_I3:-}
+    AWG_I4=${AWG_I4:-}
+    AWG_I5=${AWG_I5:-}
 
     # Save params to file for persistence
     cat > /config/server/awg_params <<EOF
@@ -74,12 +80,18 @@ AWG_H1=$AWG_H1
 AWG_H2=$AWG_H2
 AWG_H3=$AWG_H3
 AWG_H4=$AWG_H4
+AWG_I1=$AWG_I1
+AWG_I2=$AWG_I2
+AWG_I3=$AWG_I3
+AWG_I4=$AWG_I4
+AWG_I5=$AWG_I5
 EOF
 
     echo "**** AWG Obfuscation Parameters ****"
     echo "  Jc=$AWG_JC, Jmin=$AWG_JMIN, Jmax=$AWG_JMAX"
     echo "  S1=$AWG_S1, S2=$AWG_S2, S3=$AWG_S3, S4=$AWG_S4"
     echo "  H1=$AWG_H1, H2=$AWG_H2, H3=$AWG_H3, H4=$AWG_H4"
+    [[ -n "$AWG_I1" ]] && echo "  I1-I5 signature packets configured"
 }
 
 # Load existing AWG params if they exist
@@ -192,6 +204,13 @@ H3 = ${AWG_H3}
 H4 = ${AWG_H4}
 EOF
 
+    # Add I1-I5 signature packets only if set (AWG 2.0)
+    [[ -n "$AWG_I1" ]] && echo "I1 = ${AWG_I1}" >> /config/wg_confs/${INTERFACE}.conf
+    [[ -n "$AWG_I2" ]] && echo "I2 = ${AWG_I2}" >> /config/wg_confs/${INTERFACE}.conf
+    [[ -n "$AWG_I3" ]] && echo "I3 = ${AWG_I3}" >> /config/wg_confs/${INTERFACE}.conf
+    [[ -n "$AWG_I4" ]] && echo "I4 = ${AWG_I4}" >> /config/wg_confs/${INTERFACE}.conf
+    [[ -n "$AWG_I5" ]] && echo "I5 = ${AWG_I5}" >> /config/wg_confs/${INTERFACE}.conf
+
     # Add peers to server config
     local peer_num=2
     for peer_id in "${PEER_LIST[@]}"; do
@@ -241,6 +260,16 @@ H1 = ${AWG_H1}
 H2 = ${AWG_H2}
 H3 = ${AWG_H3}
 H4 = ${AWG_H4}
+EOF
+
+    # Add I1-I5 signature packets only if set (AWG 2.0)
+    [[ -n "$AWG_I1" ]] && echo "I1 = ${AWG_I1}" >> "${peer_dir}/${peer_id}.conf"
+    [[ -n "$AWG_I2" ]] && echo "I2 = ${AWG_I2}" >> "${peer_dir}/${peer_id}.conf"
+    [[ -n "$AWG_I3" ]] && echo "I3 = ${AWG_I3}" >> "${peer_dir}/${peer_id}.conf"
+    [[ -n "$AWG_I4" ]] && echo "I4 = ${AWG_I4}" >> "${peer_dir}/${peer_id}.conf"
+    [[ -n "$AWG_I5" ]] && echo "I5 = ${AWG_I5}" >> "${peer_dir}/${peer_id}.conf"
+
+    cat >> "${peer_dir}/${peer_id}.conf" <<EOF
 
 [Peer]
 PublicKey = $(cat /config/server/publickey-server)
@@ -283,11 +312,12 @@ check_config_changes() {
         saved_params=$(cat /config/server/awg_params)
 
         # Check each parameter
-        for param in AWG_JC AWG_JMIN AWG_JMAX AWG_S1 AWG_S2 AWG_H1 AWG_H2 AWG_H3 AWG_H4; do
+        for param in AWG_JC AWG_JMIN AWG_JMAX AWG_S1 AWG_S2 AWG_S3 AWG_S4 AWG_H1 AWG_H2 AWG_H3 AWG_H4 AWG_I1 AWG_I2 AWG_I3 AWG_I4 AWG_I5; do
             local env_val="${!param}"
             if [[ -n "$env_val" ]]; then
                 local saved_val
-                saved_val=$(echo "$saved_params" | grep "^${param}=" | cut -d= -f2)
+                # Use -f2- to preserve values containing '=' (e.g., I1-I5 tag syntax)
+                saved_val=$(echo "$saved_params" | grep "^${param}=" | cut -d= -f2-)
                 if [[ "$env_val" != "$saved_val" ]]; then
                     params_changed=true
                     echo "**** AWG parameter $param changed: $saved_val -> $env_val ****"
@@ -346,6 +376,11 @@ if [[ -n "$PEERS" ]]; then
         AWG_H2=${AWG_H2:-$(grep "^AWG_H2=" /config/server/awg_params | cut -d= -f2)}
         AWG_H3=${AWG_H3:-$(grep "^AWG_H3=" /config/server/awg_params | cut -d= -f2)}
         AWG_H4=${AWG_H4:-$(grep "^AWG_H4=" /config/server/awg_params | cut -d= -f2)}
+        AWG_I1=${AWG_I1:-$(grep "^AWG_I1=" /config/server/awg_params | cut -d= -f2-)}
+        AWG_I2=${AWG_I2:-$(grep "^AWG_I2=" /config/server/awg_params | cut -d= -f2-)}
+        AWG_I3=${AWG_I3:-$(grep "^AWG_I3=" /config/server/awg_params | cut -d= -f2-)}
+        AWG_I4=${AWG_I4:-$(grep "^AWG_I4=" /config/server/awg_params | cut -d= -f2-)}
+        AWG_I5=${AWG_I5:-$(grep "^AWG_I5=" /config/server/awg_params | cut -d= -f2-)}
     fi
     generate_awg_params
 

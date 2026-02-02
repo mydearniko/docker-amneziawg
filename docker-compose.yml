@@ -45,6 +45,13 @@ services:
       # - AWG_H2=2101520157                 # Header obfuscation
       # - AWG_H3=1829552136                 # Header obfuscation
       # - AWG_H4=2016351429                 # Header obfuscation
+
+      # ---- AWG 2.0 Signature Packets (Advanced - leave empty for standard mode) ----
+      # - AWG_I1=<b 0x170303><r 2><b 0x0100><t>  # TLS-like signature
+      # - AWG_I2=                                 # Optional second packet
+      # - AWG_I3=                                 # Optional third packet
+      # - AWG_I4=                                 # Optional fourth packet
+      # - AWG_I5=                                 # Optional fifth packet
     volumes:
       - ./config:/config
     ports:

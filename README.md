@@ -118,33 +118,49 @@ AmneziaWG extends WireGuard with obfuscation features to bypass Deep Packet Insp
 
 Junk packets are random data sent before each handshake to confuse traffic analysis.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AWG_JC` | Random 3-8 | Number of junk packets to send before handshake initiation |
-| `AWG_JMIN` | Random 40-80 | Minimum junk packet size in bytes |
-| `AWG_JMAX` | Random 500-1000 | Maximum junk packet size in bytes (must be ≥ JMIN) |
+| Variable | Default | Constraints | Description |
+|----------|---------|-------------|-------------|
+| `AWG_JC` | Random 3-8 | 1-128, recommended 4-12 | Number of junk packets to send before handshake initiation |
+| `AWG_JMIN` | Random 40-80 | < JMAX | Minimum junk packet size in bytes |
+| `AWG_JMAX` | Random 500-1000 | ≤ 1280 | Maximum junk packet size in bytes |
 
 #### Packet Padding
 
 Padding bytes are added to handshake and transport messages to obscure their true size.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AWG_S1` | Random 15-150 | Bytes added to handshake initiation message |
-| `AWG_S2` | Random 15-150 | Bytes added to handshake response message |
-| `AWG_S3` | 0 | Bytes added to cookie reply message |
-| `AWG_S4` | 0 | Bytes added to transport data messages |
+| Variable | Default | Constraints | Description |
+|----------|---------|-------------|-------------|
+| `AWG_S1` | Random 15-150 | ≤ 1132, S1+56 ≠ S2 | Bytes added to handshake initiation message |
+| `AWG_S2` | Random 15-150 | ≤ 1188, S1+56 ≠ S2 | Bytes added to handshake response message |
+| `AWG_S3` | 0 | - | Bytes added to cookie reply message |
+| `AWG_S4` | 0 | - | Bytes added to transport data messages |
 
 #### Header Obfuscation
 
 These values modify the 4-byte type field at the start of each packet, making traffic unrecognizable as WireGuard.
 
+| Variable | Default | Constraints | Description |
+|----------|---------|-------------|-------------|
+| `AWG_H1` | Random | 5-2147483647, must be unique | Header value for handshake initiation |
+| `AWG_H2` | Random | 5-2147483647, must be unique | Header value for handshake response |
+| `AWG_H3` | Random | 5-2147483647, must be unique | Header value for cookie reply |
+| `AWG_H4` | Random | 5-2147483647, must be unique | Header value for transport data |
+
+**Note:** H1-H4 must all be different from each other.
+
+#### Signature Packets (AWG 2.0 Advanced)
+
+Custom Protocol Signature (CPS) packets sent before handshakes to masquerade VPN traffic as other UDP protocols. See [AWG 2.0 Advanced Setup](#awg-20-advanced-setup) for usage details.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AWG_H1` | Random | Header value for handshake initiation (32-bit integer) |
-| `AWG_H2` | Random | Header value for handshake response (32-bit integer) |
-| `AWG_H3` | Random | Header value for cookie reply (32-bit integer) |
-| `AWG_H4` | Random | Header value for transport data (32-bit integer) |
+| `AWG_I1` | (empty) | First signature packet definition |
+| `AWG_I2` | (empty) | Second signature packet (requires I1) |
+| `AWG_I3` | (empty) | Third signature packet (requires I1) |
+| `AWG_I4` | (empty) | Fourth signature packet (requires I1) |
+| `AWG_I5` | (empty) | Fifth signature packet (requires I1) |
+
+See [AmneziaWG Kernel Module Configuration](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module#configuration) for official parameter constraints.
 
 #### Recommended Values
 
@@ -164,6 +180,55 @@ environment:
   - AWG_H3=1829552136
   - AWG_H4=2016351429
 ```
+
+### AWG 2.0 Advanced Setup
+
+For advanced DPI evasion scenarios where standard obfuscation isn't sufficient, AWG 2.0 introduces Custom Protocol Signature (CPS) packets via the I1-I5 parameters.
+
+#### When to Use I1-I5
+
+- Traffic is being blocked despite standard AWG obfuscation
+- Network performs protocol allowlisting (only permits specific UDP protocols)
+- You need to masquerade VPN traffic as another protocol (TLS, DNS, QUIC)
+
+#### Tag Reference
+
+| Tag | Description | Example |
+|-----|-------------|---------|
+| `<b 0xHEX>` | Static hex bytes | `<b 0x170303>` (TLS 1.2 record header) |
+| `<c>` | 32-bit packet counter | Increments each packet |
+| `<t>` | 32-bit Unix timestamp | Current time |
+| `<r N>` | N random bytes (max 1000) | `<r 32>` for 32 random bytes |
+
+#### Example: TLS-like Signature
+
+```yaml
+environment:
+  - AWG_JC=4
+  - AWG_JMIN=50
+  - AWG_JMAX=1000
+  - AWG_S1=86
+  - AWG_S2=12
+  # TLS ClientHello-like signature packet
+  - AWG_I1=<b 0x160301><r 2><b 0x0100><r 32><t>
+```
+
+#### Extracting Protocol Signatures
+
+To create custom signatures that mimic real protocols:
+
+1. Capture target protocol traffic with Wireshark
+2. Export first UDP packet bytes as hex
+3. Convert to tag syntax: `<b 0x[hex]>`
+4. Add dynamic elements (`<t>`, `<r N>`) for variability
+
+#### Compatibility Notes
+
+- **I1 is required** - I2-I5 only work when I1 is set
+- Requires AWG 2.0 compatible kernel module or `amneziawg-go` userspace
+- Requires AWG 2.0 compatible clients (AmneziaVPN 4.x+)
+- Server and all clients must have matching I1-I5 values
+- Leave I1-I5 empty for standard AWG mode (backward compatible)
 
 ### LinuxServer Standard
 

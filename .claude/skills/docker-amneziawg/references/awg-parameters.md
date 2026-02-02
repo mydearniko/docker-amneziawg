@@ -10,26 +10,28 @@ AmneziaWG extends WireGuard with traffic obfuscation to bypass Deep Packet Inspe
 
 Random data packets sent before each handshake to confuse traffic analysis.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `AWG_JC` | int | Random 3-8 | Number of junk packets per handshake (recommended: 3-8) |
-| `AWG_JMIN` | int | Random 40-80 | Minimum junk packet size in bytes |
-| `AWG_JMAX` | int | Random 500-1000 | Maximum junk packet size in bytes |
-
-**Constraints**: `JMIN` must be ≤ `JMAX`
+| Parameter | Type | Default | Constraints | Description |
+|-----------|------|---------|-------------|-------------|
+| `AWG_JC` | int | Random 3-8 | 1-128, recommended 4-12 | Number of junk packets per handshake |
+| `AWG_JMIN` | int | Random 40-80 | < JMAX | Minimum junk packet size in bytes |
+| `AWG_JMAX` | int | Random 500-1000 | ≤ 1280 | Maximum junk packet size in bytes |
 
 **How it works**: Before initiating a handshake, the client sends `Jc` packets of random data with sizes between `Jmin` and `Jmax` bytes. This obscures the handshake pattern that DPI systems look for.
+
+**Note**: Jc, Jmin, and Jmax may vary between client and server (unlike other parameters).
 
 ### Packet Padding (S1, S2, S3, S4)
 
 Adds padding bytes to different message types to obscure their true size.
 
-| Parameter | Type | Default | Message Type |
-|-----------|------|---------|--------------|
-| `AWG_S1` | int | Random 15-150 | Handshake initiation |
-| `AWG_S2` | int | Random 15-150 | Handshake response |
-| `AWG_S3` | int | 0 | Cookie reply |
-| `AWG_S4` | int | 0 | Transport data |
+| Parameter | Type | Default | Constraints | Message Type |
+|-----------|------|---------|-------------|--------------|
+| `AWG_S1` | int | Random 15-150 | ≤ 1132 (1280-148) | Handshake initiation |
+| `AWG_S2` | int | Random 15-150 | ≤ 1188 (1280-92) | Handshake response |
+| `AWG_S3` | int | 0 | - | Cookie reply |
+| `AWG_S4` | int | 0 | - | Transport data |
+
+**Critical constraint**: `S1 + 56 ≠ S2` (these values must not have this relationship)
 
 **How it works**: Each parameter specifies how many random padding bytes to add to that message type. This prevents DPI from identifying messages by their characteristic sizes.
 
@@ -39,16 +41,18 @@ Adds padding bytes to different message types to obscure their true size.
 
 Modifies the 4-byte type field at the start of each packet.
 
-| Parameter | Type | Default | Message Type |
-|-----------|------|---------|--------------|
-| `AWG_H1` | int32 | Random | Handshake initiation (normally: 1) |
-| `AWG_H2` | int32 | Random | Handshake response (normally: 2) |
-| `AWG_H3` | int32 | Random | Cookie reply (normally: 3) |
-| `AWG_H4` | int32 | Random | Transport data (normally: 4) |
+| Parameter | Type | Default | Constraints | Message Type |
+|-----------|------|---------|-------------|--------------|
+| `AWG_H1` | int32 | Random | 5-2147483647, unique | Handshake initiation (normally: 1) |
+| `AWG_H2` | int32 | Random | 5-2147483647, unique | Handshake response (normally: 2) |
+| `AWG_H3` | int32 | Random | 5-2147483647, unique | Cookie reply (normally: 3) |
+| `AWG_H4` | int32 | Random | 5-2147483647, unique | Transport data (normally: 4) |
 
 **How it works**: Standard WireGuard uses fixed values 1-4 to identify packet types. AmneziaWG replaces these with arbitrary 32-bit integers, making traffic unrecognizable as WireGuard.
 
-**Value range**: 1 to 2147483647 (positive 32-bit integers)
+**Critical constraint**: H1, H2, H3, and H4 must all be different from each other.
+
+**Value range**: 5 to 2147483647 (positive 32-bit integers, minimum 5 to avoid collision with standard WireGuard values)
 
 ## Implementation in This Project
 
@@ -113,18 +117,122 @@ H3 = 1829552136
 H4 = 2016351429
 ```
 
-## Advanced Parameters (Not Implemented)
+## Custom Protocol Signature Packets (I1-I5) - AWG 2.0
 
-AmneziaWG also supports custom signature packets (`I1`-`I5`) for advanced obfuscation. These are client-side only and use special tag syntax:
+AWG 2.0 introduces Custom Protocol Signature (CPS) packets that are sent before handshakes to masquerade VPN traffic as other UDP protocols.
 
-- `<b 0x[hex]>` - Static bytes
-- `<r [size]>` - Random bytes
-- `<rd [size]>` - Random digits
-- `<rc [size]>` - Random characters
-- `<t>` - Unix timestamp
-- `<c>` - Packet counter
+### Parameters
 
-These are not implemented in this project as they're rarely needed and add complexity.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `AWG_I1` | string | (empty) | First signature packet definition |
+| `AWG_I2` | string | (empty) | Second signature packet |
+| `AWG_I3` | string | (empty) | Third signature packet |
+| `AWG_I4` | string | (empty) | Fourth signature packet |
+| `AWG_I5` | string | (empty) | Fifth signature packet |
+
+**Important**: I1 is required for I2-I5 to work. All signature packets form a chain.
+
+### Tag Syntax
+
+| Tag | Description | Example | Output |
+|-----|-------------|---------|--------|
+| `<b 0xHEX>` | Static hex bytes | `<b 0x170303>` | `\x17\x03\x03` |
+| `<c>` | 32-bit packet counter | `<c>` | Increments each packet |
+| `<t>` | 32-bit Unix timestamp | `<t>` | Current epoch time |
+| `<r N>` | N random bytes (max 1000) | `<r 32>` | 32 random bytes |
+
+**Maximum packet size**: 5KB per signature packet.
+
+### Use Cases
+
+#### Scenario 1: Protocol Allowlisting
+
+When networks only permit specific UDP protocols (TLS over UDP, DNS, QUIC):
+
+```bash
+# Mimic TLS record layer
+AWG_I1=<b 0x160301><r 2><b 0x0100><r 32><t>
+```
+
+#### Scenario 2: Sophisticated DPI
+
+When DPI systems inspect packet patterns deeply:
+
+```bash
+# Multi-packet signature chain
+AWG_I1=<b 0x170303><r 2><b 0x0100><t>
+AWG_I2=<b 0x170303><r 4><c>
+```
+
+#### Scenario 3: Protocol Mimicry
+
+To make traffic appear as specific applications:
+
+```bash
+# DNS-like signature (starts with transaction ID)
+AWG_I1=<r 2><b 0x0100><b 0x0001><b 0x0000><b 0x0000><b 0x0000>
+```
+
+### Sample Configurations
+
+#### TLS ClientHello-like
+
+```ini
+[Interface]
+# ... other params ...
+I1 = <b 0x160301><r 2><b 0x0100><r 32><t>
+```
+
+#### QUIC-like
+
+```ini
+[Interface]
+# ... other params ...
+I1 = <b 0xc0><r 4><b 0x00000001><r 16><t>
+```
+
+### Implementation in This Project
+
+#### Generation (init-amneziawg-confs/run)
+
+```bash
+# I1-I5: Custom Protocol Signature packets (AWG 2.0, empty by default)
+AWG_I1=${AWG_I1:-}
+AWG_I2=${AWG_I2:-}
+AWG_I3=${AWG_I3:-}
+AWG_I4=${AWG_I4:-}
+AWG_I5=${AWG_I5:-}
+```
+
+#### Config File Output
+
+I1-I5 are only written to config files when set (not empty):
+
+```bash
+[[ -n "$AWG_I1" ]] && echo "I1 = ${AWG_I1}" >> config.conf
+```
+
+#### Persistence
+
+Values are saved to `/config/server/awg_params`:
+
+```
+AWG_I1=<b 0x170303><r 2><b 0x0100><t>
+AWG_I2=
+AWG_I3=
+AWG_I4=
+AWG_I5=
+```
+
+### Compatibility Notes
+
+- Requires AWG 2.0 compatible kernel module or `amneziawg-go` userspace
+- Requires AWG 2.0 compatible tools (amneziawg-tools with CPS support)
+- Requires AWG 2.0 compatible clients (AmneziaVPN 4.x+)
+- Server and all clients must have matching I1-I5 values
+- Standard WireGuard clients will NOT work with I1-I5 enabled
+- Leave I1-I5 empty for backward compatibility with older clients
 
 ## Troubleshooting
 
@@ -139,5 +247,6 @@ Ensure `JMAX` isn't too large. Very large junk packets may be dropped by some ne
 
 ## References
 
+- [AmneziaWG Kernel Module Configuration](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module#configuration) - Official parameter constraints
 - [amneziawg-go README](https://github.com/amnezia-vpn/amneziawg-go)
 - [AmneziaVPN Documentation](https://docs.amnezia.org/)
