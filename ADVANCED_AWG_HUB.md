@@ -8,12 +8,12 @@ Based on the [LinuxServer.io Advanced WireGuard Hub](https://www.linuxserver.io/
 
 ```
                          ┌─────────────────────────────────┐
-                         │      Russian VPS (hub)           │
-                         │   docker-amneziawg container     │
-┌──────────┐   AWG      │                                  │   WG/AWG    ┌──────────────┐
+                         │      Russian VPS (hub)          │
+                         │   docker-amneziawg container    │
+┌──────────┐   AWG       │                                 │   WG/AWG   ┌──────────────┐
 │  Phone   │──────────►  │  wg0 (server) ──► wg1 (client) ─┼──────────► │  Proton VPN  │
 │  Laptop  │  encrypted  │                 ► wg2 (client) ─┼──────────► │  WARP / Exit │
-│  Router  │  + DPI hide │                                  │            └──────────────┘
+│  Router  │  + DPI hide │                                 │            └──────────────┘
 └──────────┘             └─────────────────────────────────┘
 ```
 
