@@ -16,7 +16,7 @@ SERVERPORT=${SERVERPORT:-51820}
 INTERNAL_SUBNET=${INTERNAL_SUBNET:-10.13.13.0}
 PEERDNS=${PEERDNS:-auto}
 ALLOWEDIPS=${ALLOWEDIPS:-0.0.0.0/0, ::/0}
-PERSISTENTKEEPALIVE_PEERS=${PERSISTENTKEEPALIVE_PEERS:-}
+PERSISTENTKEEPALIVE_PEERS=${PERSISTENTKEEPALIVE_PEERS:-25}
 LOG_CONFS=${LOG_CONFS:-true}
 INTERFACE=${INTERFACE:-wg0}
 
@@ -92,6 +92,26 @@ EOF
     echo "  S1=$AWG_S1, S2=$AWG_S2, S3=$AWG_S3, S4=$AWG_S4"
     echo "  H1=$AWG_H1, H2=$AWG_H2, H3=$AWG_H3, H4=$AWG_H4"
     [[ -n "$AWG_I1" ]] && echo "  I1-I5 signature packets configured"
+
+    # Validation warnings
+    if [[ "$AWG_JMIN" -gt "$AWG_JMAX" ]] 2>/dev/null; then
+        echo "**** WARNING: Jmin ($AWG_JMIN) > Jmax ($AWG_JMAX) - junk packets may not work correctly ****"
+    fi
+    local s1_plus_56=$((AWG_S1 + 56))
+    if [[ "$s1_plus_56" -eq "$AWG_S2" ]] 2>/dev/null; then
+        echo "**** WARNING: S1+56 ($s1_plus_56) equals S2 ($AWG_S2) - this should be avoided ****"
+    fi
+    # Check H1-H4 uniqueness (only for non-range values)
+    if [[ "$AWG_H1" != *-* ]] && [[ "$AWG_H2" != *-* ]] && [[ "$AWG_H3" != *-* ]] && [[ "$AWG_H4" != *-* ]]; then
+        local -A h_values
+        for h_name in AWG_H1 AWG_H2 AWG_H3 AWG_H4; do
+            local h_val="${!h_name}"
+            if [[ -n "${h_values[$h_val]+x}" ]]; then
+                echo "**** WARNING: $h_name has duplicate value $h_val (same as ${h_values[$h_val]}) - H1-H4 should be unique ****"
+            fi
+            h_values[$h_val]="$h_name"
+        done
+    fi
 }
 
 # Load existing AWG params if they exist
@@ -269,6 +289,7 @@ EOF
     [[ -n "$AWG_I4" ]] && echo "I4 = ${AWG_I4}" >> "${peer_dir}/${peer_id}.conf"
     [[ -n "$AWG_I5" ]] && echo "I5 = ${AWG_I5}" >> "${peer_dir}/${peer_id}.conf"
 
+    local keepalive=${PERSISTENTKEEPALIVE_PEERS:-25}
     cat >> "${peer_dir}/${peer_id}.conf" <<EOF
 
 [Peer]
@@ -276,7 +297,7 @@ PublicKey = $(cat /config/server/publickey-server)
 PresharedKey = $(cat "${peer_dir}/presharedkey-${peer_id}")
 Endpoint = ${SERVERURL}:${SERVERPORT}
 AllowedIPs = ${ALLOWEDIPS}
-PersistentKeepalive = 25
+PersistentKeepalive = ${keepalive}
 EOF
 
     chmod 600 "${peer_dir}/${peer_id}.conf"

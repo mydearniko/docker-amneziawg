@@ -43,16 +43,18 @@ Modifies the 4-byte type field at the start of each packet.
 
 | Parameter | Type | Default | Constraints | Message Type |
 |-----------|------|---------|-------------|--------------|
-| `AWG_H1` | int32 | Random | 5-2147483647, unique | Handshake initiation (normally: 1) |
-| `AWG_H2` | int32 | Random | 5-2147483647, unique | Handshake response (normally: 2) |
-| `AWG_H3` | int32 | Random | 5-2147483647, unique | Cookie reply (normally: 3) |
-| `AWG_H4` | int32 | Random | 5-2147483647, unique | Transport data (normally: 4) |
+| `AWG_H1` | string | Random | 5-2147483647, unique | Handshake initiation (normally: 1) |
+| `AWG_H2` | string | Random | 5-2147483647, unique | Handshake response (normally: 2) |
+| `AWG_H3` | string | Random | 5-2147483647, unique | Cookie reply (normally: 3) |
+| `AWG_H4` | string | Random | 5-2147483647, unique | Transport data (normally: 4) |
 
 **How it works**: Standard WireGuard uses fixed values 1-4 to identify packet types. AmneziaWG replaces these with arbitrary 32-bit integers, making traffic unrecognizable as WireGuard.
 
 **Critical constraint**: H1, H2, H3, and H4 must all be different from each other.
 
 **Value range**: 5 to 2147483647 (positive 32-bit integers, minimum 5 to avoid collision with standard WireGuard values)
+
+**AWG 2.0 range format**: H1-H4 also support range syntax (e.g., `H1 = 100-999`). When a range is specified, the actual header value is chosen randomly from that range for each packet, providing additional randomization.
 
 ## Implementation in This Project
 
@@ -70,11 +72,11 @@ AWG_S2=${AWG_S2:-$(shuf -i 15-150 -n 1)}
 AWG_S3=${AWG_S3:-0}
 AWG_S4=${AWG_S4:-0}
 
-# Headers
-AWG_H1=${AWG_H1:-$(shuf -i 1-2147483647 -n 1)}
-AWG_H2=${AWG_H2:-$(shuf -i 1-2147483647 -n 1)}
-AWG_H3=${AWG_H3:-$(shuf -i 1-2147483647 -n 1)}
-AWG_H4=${AWG_H4:-$(shuf -i 1-2147483647 -n 1)}
+# Headers (min 5 to avoid collision with standard WireGuard values 1-4)
+AWG_H1=${AWG_H1:-$(shuf -i 5-2147483647 -n 1)}
+AWG_H2=${AWG_H2:-$(shuf -i 5-2147483647 -n 1)}
+AWG_H3=${AWG_H3:-$(shuf -i 5-2147483647 -n 1)}
+AWG_H4=${AWG_H4:-$(shuf -i 5-2147483647 -n 1)}
 ```
 
 ### Persistence
@@ -138,9 +140,10 @@ AWG 2.0 introduces Custom Protocol Signature (CPS) packets that are sent before 
 | Tag | Description | Example | Output |
 |-----|-------------|---------|--------|
 | `<b 0xHEX>` | Static hex bytes | `<b 0x170303>` | `\x17\x03\x03` |
-| `<c>` | 32-bit packet counter | `<c>` | Increments each packet |
-| `<t>` | 32-bit Unix timestamp | `<t>` | Current epoch time |
 | `<r N>` | N random bytes (max 1000) | `<r 32>` | 32 random bytes |
+| `<rd N>` | N random digits (0-9) | `<rd 8>` | 8 random digit bytes |
+| `<rc N>` | N random characters (a-zA-Z) | `<rc 16>` | 16 random letter bytes |
+| `<t>` | 32-bit Unix timestamp | `<t>` | Current epoch time |
 
 **Maximum packet size**: 5KB per signature packet.
 

@@ -107,6 +107,7 @@ services:
 | `INTERNAL_SUBNET` | `10.13.13.0` | VPN subnet (peers get .2, .3, etc.) |
 | `PEERDNS` | `auto` | DNS for peers (`auto` = 8.8.8.8, 8.8.4.4) |
 | `ALLOWEDIPS` | `0.0.0.0/0, ::/0` | Peer allowed IPs |
+| `PERSISTENTKEEPALIVE_PEERS` | `25` | PersistentKeepalive interval for peers (seconds) |
 | `LOG_CONFS` | `true` | Show QR codes in container logs |
 | `INTERFACE` | `wg0` | Interface name |
 
@@ -146,7 +147,7 @@ These values modify the 4-byte type field at the start of each packet, making tr
 | `AWG_H3` | Random | 5-2147483647, must be unique | Header value for cookie reply |
 | `AWG_H4` | Random | 5-2147483647, must be unique | Header value for transport data |
 
-**Note:** H1-H4 must all be different from each other.
+**Note:** H1-H4 must all be different from each other. AWG 2.0 also supports range format (e.g., `AWG_H1=100-999`) for additional randomization per packet.
 
 #### Signature Packets (AWG 2.0 Advanced)
 
@@ -196,9 +197,10 @@ For advanced DPI evasion scenarios where standard obfuscation isn't sufficient, 
 | Tag | Description | Example |
 |-----|-------------|---------|
 | `<b 0xHEX>` | Static hex bytes | `<b 0x170303>` (TLS 1.2 record header) |
-| `<c>` | 32-bit packet counter | Increments each packet |
-| `<t>` | 32-bit Unix timestamp | Current time |
 | `<r N>` | N random bytes (max 1000) | `<r 32>` for 32 random bytes |
+| `<rd N>` | N random digits (0-9) | `<rd 8>` for 8 random digit bytes |
+| `<rc N>` | N random characters (a-zA-Z) | `<rc 16>` for 16 random letter bytes |
+| `<t>` | 32-bit Unix timestamp | Current time |
 
 #### Example: TLS-like Signature
 
@@ -411,6 +413,109 @@ docker-amneziawg/
 └── README.md
 ```
 
+## Best Practices: Bypassing Russian Censorship (TSPU/DPI)
+
+Russia deploys TSPU (Technical Means of Counteracting Threats) equipment at ISP network nodes that performs deep packet inspection. This section covers practical recommendations for configuring AmneziaWG to avoid detection.
+
+### How TSPU Detects VPN Traffic
+
+1. **Protocol signature matching** - standard WireGuard has a fixed 148-byte Init packet and header type values 1-4. DPI matches these exactly.
+2. **Packet length statistical analysis** - uniform data packet sizes are distinctive for WireGuard.
+3. **Junk packet pattern detection** - some ISPs (notably MTS) fingerprint the burst of junk packets AWG 1.0 sends at connection start.
+4. **TLS fingerprinting** - on port 443, TSPU checks whether UDP traffic matches expected QUIC/TLS patterns.
+5. **Behavioral analysis** - sustained symmetric bidirectional tunnels running 24/7 are flagged.
+6. **IP reputation / ASN blocking** - known VPS provider IP ranges may be preemptively blocked.
+
+### Port Selection
+
+**Use a random high port (10000-65535). Avoid the default 51820.**
+
+| Port | Risk Level | Notes |
+|------|------------|-------|
+| 51820 | High | Default WireGuard port, actively fingerprinted |
+| 443/udp | Medium | Works with QUIC-like I1 signatures, but TSPU applies TLS fingerprinting |
+| Random high | Low | Harder for DPI to profile since there is no expected protocol to match |
+
+### Server Location
+
+Closer servers with less monitored transit links work best:
+
+| Country | Latency from Moscow | Notes |
+|---------|-------------------|-------|
+| Finland | 20-30ms | Close proximity, generally reliable |
+| Estonia | 25-35ms | Recommended by Amnezia team |
+| Kazakhstan | 15-25ms | Lowest latency, less cross-border filtering |
+| Poland | 35-45ms | Good balance of latency and reliability |
+
+Avoid Netherlands and Germany - heavy filtering reported on major transit links. Prefer smaller regional VPS providers over well-known ones (DigitalOcean, Vultr, Hetzner) whose IP ranges are easier to blacklist.
+
+### Recommended Configuration
+
+For best results, use AWG 2.0 with Custom Protocol Signatures:
+
+```yaml
+services:
+  amneziawg:
+    image: ghcr.io/ayastrebov/docker-amneziawg:latest
+    container_name: amneziawg
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - SERVERURL=vpn.example.com
+      - SERVERPORT=39743
+      - PEERS=phone,laptop
+      - PEERDNS=1.1.1.1, 8.8.8.8
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=0.0.0.0/0, ::/0
+      # Obfuscation - randomize these values for your setup
+      - AWG_JC=4
+      - AWG_JMIN=50
+      - AWG_JMAX=1000
+      - AWG_S1=67
+      - AWG_S2=89
+      - AWG_S3=25
+      - AWG_S4=0
+      - AWG_H1=985741236
+      - AWG_H2=1736482950
+      - AWG_H3=427819563
+      - AWG_H4=1293650847
+      # AWG 2.0 - QUIC-like signature packet
+      - AWG_I1=<b 0xc0000000><r 16><t>
+    volumes:
+      - ./config:/config
+    ports:
+      - 39743:39743/udp
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+```
+
+### Common Mistakes
+
+| Mistake | Why It Fails |
+|---------|-------------|
+| Using port 51820 | Immediate WireGuard fingerprint match |
+| S1=0, S2=0 | Packet sizes stay at standard WireGuard lengths (148 bytes for Init) |
+| Same params as a popular tutorial | If many users share identical S/H values, DPI can fingerprint that set |
+| S1 + 56 equals S2 | Response packet size becomes predictable relative to Init |
+| AWG 1.0 on MTS | MTS specifically detects junk packet bursts; upgrade to AWG 2.0 |
+| 24/7 single-connection tunnel | Behavioral analysis flags persistent symmetric traffic |
+| Well-known VPS IP ranges | IPs may be preemptively blocked regardless of protocol |
+
+### Tips
+
+- **Always randomize your own parameter values** - do not copy exact values from examples. The auto-generated random defaults in this container are a good starting point.
+- **Use AWG 2.0 with I1 signatures** when possible - it is significantly harder for TSPU to detect than AWG 1.0 junk packets alone.
+- **Keep S4 small** (0-32) - data packet padding is per-packet overhead, large values kill throughput.
+- **Consider split tunneling** (`ALLOWEDIPS=`) to route only necessary traffic through VPN, reducing the traffic profile.
+- **Have a fallback ready** - the Amnezia team recommends VLESS+Reality (XRay) as a backup protocol when AWG faces active blocking campaigns.
+- **Update regularly** - TSPU detection evolves; keep both server and client software up to date.
+
 ## Troubleshooting
 
 ### No configuration files found
@@ -453,9 +558,11 @@ docker exec amneziawg /app/show-peer all
 
 - [GitHub Repository](https://github.com/AYastrebov/docker-amneziawg)
 - [Docker Images](https://github.com/AYastrebov/docker-amneziawg/pkgs/container/docker-amneziawg)
+- [AmneziaVPN Documentation](https://docs.amnezia.org/)
 - [AmneziaWG Kernel Module](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module)
 - [AmneziaWG-go](https://github.com/amnezia-vpn/amneziawg-go)
 - [AmneziaWG Tools](https://github.com/amnezia-vpn/amneziawg-tools)
+- [LinuxServer docker-wireguard](https://github.com/linuxserver/docker-wireguard) (inspiration for this project)
 - [LinuxServer.io](https://www.linuxserver.io/)
 
 ## License
