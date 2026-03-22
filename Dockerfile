@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # Dockerfile for AmneziaWG with LinuxServer.io architecture
 # Multi-stage build: compile amneziawg-go, awg-tools, then create runtime image
 
@@ -34,29 +36,37 @@ RUN make && \
 # ============================================================================
 FROM ghcr.io/linuxserver/baseimage-alpine:3.21
 
-# Set labels
+# set version label
+ARG BUILD_DATE
+ARG VERSION
+LABEL build_version="AmneziaWG version:- ${VERSION} Build-date:- ${BUILD_DATE}"
 LABEL maintainer="AYastrebov"
 LABEL org.opencontainers.image.source="https://github.com/AYastrebov/docker-amneziawg"
 LABEL org.opencontainers.image.description="AmneziaWG VPN container with LinuxServer.io architecture"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Install runtime dependencies
+ENV LSIO_FIRST_PARTY="false"
+
 RUN \
   echo "**** install dependencies ****" && \
   apk add --no-cache \
+    bc \
+    coredns \
+    grep \
     iproute2 \
     iptables \
     ip6tables \
-    openresolv \
-    libqrencode-tools \
+    iputils \
     kmod \
-    bash \
-    grep \
-    coreutils && \
-  echo "**** create directories ****" && \
-  mkdir -p /config/wg_confs && \
+    libcap-utils \
+    libqrencode-tools \
+    net-tools \
+    nftables \
+    openresolv && \
+  echo "wireguard" >> /etc/modules && \
   echo "**** cleanup ****" && \
-  rm -rf /tmp/*
+  rm -rf \
+    /tmp/*
 
 # Copy compiled binaries from builder stages
 COPY --from=go-builder /src/amneziawg-go /usr/bin/
@@ -75,17 +85,10 @@ RUN sed -i 's|\[\[ $proto == -4 \]\] && cmd sysctl -q net\.ipv4\.conf\.all\.src_
 # Create symlink for /etc/wireguard -> /config/wg_confs
 RUN \
   rm -rf /etc/wireguard && \
-  ln -sf /config/wg_confs /etc/wireguard
+  ln -s /config/wg_confs /etc/wireguard
 
-# Copy root filesystem (s6-overlay services, defaults, scripts)
-COPY root/ /
+# add local files
+COPY /root /
 
-# Expose WireGuard port
+# ports and volumes
 EXPOSE 51820/udp
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD awg show 2>/dev/null || exit 1
-
-# Volumes
-VOLUME /config

@@ -17,6 +17,8 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
     environment:
       # LinuxServer standard variables
       - PUID=1000
@@ -31,7 +33,14 @@ services:
       # - PEERDNS=auto                      # DNS for peers (or specific: 8.8.8.8, 8.8.4.4)
       # - INTERNAL_SUBNET=10.13.13.0        # VPN subnet
       # - ALLOWEDIPS=0.0.0.0/0, ::/0        # Allowed IPs for peers
+      # - PERSISTENTKEEPALIVE_PEERS=all     # Which peers get keepalive (all or comma-separated)
       # - LOG_CONFS=true                    # Show QR codes in logs
+
+      # ---- Per-peer server AllowedIPs (site-to-site VPN) ----
+      # - SERVER_ALLOWEDIPS_PEER_laptop=192.168.1.0/24
+
+      # ---- AmneziaWG Protocol Version ----
+      # - AWG_VERSION=2.0                   # "2.0" (default) or "1.5" for legacy clients
 
       # ---- AmneziaWG Obfuscation (optional - random if not set) ----
       # - AWG_JC=4                          # Junk packet count (3-8 recommended)
@@ -39,8 +48,8 @@ services:
       # - AWG_JMAX=1000                     # Max junk packet size
       # - AWG_S1=86                         # Init packet padding
       # - AWG_S2=12                         # Response packet padding
-      # - AWG_S3=0                          # Cookie message padding
-      # - AWG_S4=0                          # Transport packet padding
+      # - AWG_S3=50                         # Cookie message padding (AWG 2.0, random if unset)
+      # - AWG_S4=50                         # Transport packet padding (AWG 2.0, random if unset)
       # - AWG_H1=1755269708                 # Header obfuscation
       # - AWG_H2=2101520157                 # Header obfuscation
       # - AWG_H3=1829552136                 # Header obfuscation
@@ -52,6 +61,9 @@ services:
       # - AWG_I3=                                 # Optional third packet
       # - AWG_I4=                                 # Optional fourth packet
       # - AWG_I5=                                 # Optional fifth packet
+
+      # ---- CoreDNS ----
+      # - USE_COREDNS=true                  # Enable CoreDNS (auto in server mode)
     volumes:
       - ./config:/config
     ports:
@@ -79,9 +91,10 @@ services:
 #       - SERVERURL=vpn.example.com
 #       - SERVERPORT=51820
 #       - PEERS=laptop,phone,tablet
-#       - PEERDNS=8.8.8.8, 8.8.4.4
+#       - PEERDNS=auto
 #       - INTERNAL_SUBNET=10.13.13.0
 #       - ALLOWEDIPS=0.0.0.0/0, ::/0
+#       - PERSISTENTKEEPALIVE_PEERS=all
 #       - LOG_CONFS=true
 #     volumes:
 #       - ./config:/config
