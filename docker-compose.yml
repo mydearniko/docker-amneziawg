@@ -69,7 +69,7 @@ services:
       # - KILL_SWITCH=true                  # Remove default route on tunnel failure (default: false)
     volumes:
       - ./config:/config
-      - /proc/sys/net:/proc/sys/net:rw   # Allow sysctl from PostUp/PostDown in tunnel configs
+    privileged: true    # Required for sysctl in PostUp/PostDown tunnel configs
     ports:
       - 51820:51820/udp
     sysctls:
