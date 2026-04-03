@@ -91,10 +91,12 @@ RUN \
 # Apply awg-quick sysctl patch to avoid errors when sysctl is already set
 RUN sed -i 's|\[\[ $proto == -4 \]\] && cmd sysctl -q net\.ipv4\.conf\.all\.src_valid_mark=1|[[ $proto == -4 ]] \&\& [[ $(sysctl -n net.ipv4.conf.all.src_valid_mark) != 1 ]] \&\& cmd sysctl -q net.ipv4.conf.all.src_valid_mark=1|' /usr/bin/awg-quick
 
-# Create symlink for /etc/wireguard -> /config/wg_confs
+# Create symlinks for /etc/wireguard and /etc/amnezia/amneziawg -> /config/wg_confs
 RUN \
   rm -rf /etc/wireguard && \
-  ln -s /config/wg_confs /etc/wireguard
+  ln -s /config/wg_confs /etc/wireguard && \
+  mkdir -p /etc/amnezia && \
+  ln -s /config/wg_confs /etc/amnezia/amneziawg
 
 # write build version info
 RUN \
