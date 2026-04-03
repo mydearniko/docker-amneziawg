@@ -32,10 +32,10 @@ RUN git clone --branch ${AMNEZIAWG_TOOLS_VERSION} --depth 1 https://github.com/a
 WORKDIR /src/src
 # Build awg binary and install awg-quick script
 RUN make && \
-    make install DESTDIR=/tools-install && \
-    mkdir -p /tools-install/usr/bin && \
-    cp /src/src/wg-quick/linux.bash /tools-install/usr/bin/awg-quick && \
-    chmod +x /tools-install/usr/bin/awg-quick
+  make install DESTDIR=/tools-install && \
+  mkdir -p /tools-install/usr/bin && \
+  cp /src/src/wg-quick/linux.bash /tools-install/usr/bin/awg-quick && \
+  chmod +x /tools-install/usr/bin/awg-quick
 
 # ============================================================================
 # Stage 3: Runtime image using LinuxServer base
@@ -48,8 +48,8 @@ ARG VERSION
 ARG AMNEZIAWG_GO_VERSION
 ARG AMNEZIAWG_TOOLS_VERSION
 LABEL build_version="AmneziaWG version:- ${VERSION} Build-date:- ${BUILD_DATE}"
-LABEL maintainer="AYastrebov"
-LABEL org.opencontainers.image.source="https://github.com/AYastrebov/docker-amneziawg"
+LABEL maintainer="mydearniko"
+LABEL org.opencontainers.image.source="https://github.com/mydearniko/docker-amneziawg"
 LABEL org.opencontainers.image.description="AmneziaWG VPN container (amneziawg-tools ${AMNEZIAWG_TOOLS_VERSION}, amneziawg-go ${AMNEZIAWG_GO_VERSION})"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.version="${AMNEZIAWG_TOOLS_VERSION}"
@@ -59,23 +59,23 @@ ENV LSIO_FIRST_PARTY="false"
 RUN \
   echo "**** install dependencies ****" && \
   apk add --no-cache \
-    bc \
-    coredns \
-    grep \
-    iproute2 \
-    iptables \
-    ip6tables \
-    iputils \
-    kmod \
-    libcap-utils \
-    libqrencode-tools \
-    net-tools \
-    nftables \
-    openresolv && \
+  bc \
+  coredns \
+  grep \
+  iproute2 \
+  iptables \
+  ip6tables \
+  iputils \
+  kmod \
+  libcap-utils \
+  libqrencode-tools \
+  net-tools \
+  nftables \
+  openresolv && \
   echo "wireguard" >> /etc/modules && \
   echo "**** cleanup ****" && \
   rm -rf \
-    /tmp/*
+  /tmp/*
 
 # Copy compiled binaries from builder stages
 COPY --from=go-builder /src/amneziawg-go /usr/bin/
