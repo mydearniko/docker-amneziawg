@@ -64,6 +64,9 @@ services:
 
       # ---- CoreDNS ----
       # - USE_COREDNS=true                  # Enable CoreDNS (auto in server mode)
+
+      # ---- Kill Switch ----
+      # - KILL_SWITCH=true                  # Remove default route on tunnel failure (default: false)
     volumes:
       - ./config:/config
     ports:

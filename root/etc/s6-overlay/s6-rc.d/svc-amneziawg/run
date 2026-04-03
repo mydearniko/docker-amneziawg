@@ -3,6 +3,10 @@
 
 unset AWG_CONFS
 rm -rf /run/activeconfs
+# Restore any conf backups left from a previous crashed run
+for bak in /config/wg_confs/*.conf.awgbak; do
+    [[ -f "${bak}" ]] && mv "${bak}" "${bak%.awgbak}"
+done
 # Enumerate interfaces
 for awgconf in /config/wg_confs/*.conf; do
     if grep -q "\[Interface\]" "${awgconf}"; then
@@ -15,17 +19,26 @@ done
 
 if [[ -z "${AWG_CONFS[*]}" ]]; then
     echo "**** No valid tunnel config found. Please create a valid config and restart the container ****"
-    ip route del default
+    if [[ "${KILL_SWITCH,,}" == "true" ]]; then
+        echo "**** Kill switch is active, removing default route to prevent traffic leaks ****"
+        ip route del default
+    fi
     exit 0
 fi
 
 unset FAILED
 for tunnel in "${AWG_CONFS[@]}"; do
     echo "**** Activating tunnel ${tunnel} ****"
+    # Make sysctl commands in PostUp non-fatal to prevent tunnel failure
+    # when container lacks write access to /proc/sys (Docker default).
+    # The sysctls will be attempted but won't abort awg-quick on permission denied.
+    sed -i.awgbak '/^[[:space:]]*PostUp.*sysctl/s/$/ || true/' "${tunnel}"
     if ! awg-quick up "${tunnel}"; then
+        [[ -f "${tunnel}.awgbak" ]] && mv "${tunnel}.awgbak" "${tunnel}"
         FAILED="${tunnel}"
         break
     fi
+    [[ -f "${tunnel}.awgbak" ]] && mv "${tunnel}.awgbak" "${tunnel}"
 done
 
 if [[ -z "${FAILED}" ]]; then
@@ -41,6 +54,9 @@ else
             awg-quick down "${tunnel}" || :
         fi
     done
-    ip route del default
+    if [[ "${KILL_SWITCH,,}" == "true" ]]; then
+        echo "**** Kill switch is active, removing default route to prevent traffic leaks ****"
+        ip route del default
+    fi
     echo "**** All tunnels are now down. Please fix the tunnel config ${FAILED} and restart the container ****"
 fi

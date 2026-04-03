@@ -109,24 +109,25 @@ services:
 
 ### Server Mode (when `PEERS` is set)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PEERS` | - | Number or comma-separated names (enables server mode) |
-| `SERVERURL` | `auto` | External server URL/IP (`auto` to detect) |
-| `SERVERPORT` | `51820` | Listen port |
-| `INTERNAL_SUBNET` | `10.13.13.0` | VPN subnet (peers get .2, .3, etc.) |
-| `PEERDNS` | `auto` | DNS for peers (`auto` = container DNS at SUBNET.1) |
-| `ALLOWEDIPS` | `0.0.0.0/0, ::/0` | Peer allowed IPs |
-| `PERSISTENTKEEPALIVE_PEERS` | - | Which peers get keepalive: `all` or comma-separated names/numbers |
-| `SERVER_ALLOWEDIPS_PEER_X` | - | Per-peer server AllowedIPs for site-to-site (e.g., `SERVER_ALLOWEDIPS_PEER_laptop=192.168.1.0/24`) |
-| `LOG_CONFS` | `true` | Show QR codes in container logs |
-| `USE_COREDNS` | `true` (server) | Enable CoreDNS for peer DNS resolution; `false` in client mode |
+| Variable                    | Default           | Description                                                                                        |
+| --------------------------- | ----------------- | -------------------------------------------------------------------------------------------------- |
+| `PEERS`                     | -                 | Number or comma-separated names (enables server mode)                                              |
+| `SERVERURL`                 | `auto`            | External server URL/IP (`auto` to detect)                                                          |
+| `SERVERPORT`                | `51820`           | Listen port                                                                                        |
+| `INTERNAL_SUBNET`           | `10.13.13.0`      | VPN subnet (peers get .2, .3, etc.)                                                                |
+| `PEERDNS`                   | `auto`            | DNS for peers (`auto` = container DNS at SUBNET.1)                                                 |
+| `ALLOWEDIPS`                | `0.0.0.0/0, ::/0` | Peer allowed IPs                                                                                   |
+| `PERSISTENTKEEPALIVE_PEERS` | -                 | Which peers get keepalive: `all` or comma-separated names/numbers                                  |
+| `SERVER_ALLOWEDIPS_PEER_X`  | -                 | Per-peer server AllowedIPs for site-to-site (e.g., `SERVER_ALLOWEDIPS_PEER_laptop=192.168.1.0/24`) |
+| `LOG_CONFS`                 | `true`            | Show QR codes in container logs                                                                    |
+| `USE_COREDNS`               | `true` (server)   | Enable CoreDNS for peer DNS resolution; `false` in client mode                                     |
+| `KILL_SWITCH`               | `false`           | Remove default route on tunnel failure to prevent traffic leaks outside VPN                        |
 
 ### AmneziaWG Protocol Version
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AWG_VERSION` | `2.0` | Protocol version: `2.0` (full DPI evasion with I1-I5 signatures) or `1.5` (legacy, compatible with AmneziaVPN < 4.8.12.9) |
+| Variable      | Default | Description                                                                                                               |
+| ------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `AWG_VERSION` | `2.0`   | Protocol version: `2.0` (full DPI evasion with I1-I5 signatures) or `1.5` (legacy, compatible with AmneziaVPN < 4.8.12.9) |
 
 ### AmneziaWG Obfuscation
 
@@ -136,33 +137,33 @@ AmneziaWG extends WireGuard with obfuscation features to bypass Deep Packet Insp
 
 Junk packets are random data sent before each handshake to confuse traffic analysis.
 
-| Variable | Default | Constraints | Description |
-|----------|---------|-------------|-------------|
-| `AWG_JC` | Random 3-8 | 1-128, recommended 4-12 | Number of junk packets to send before handshake initiation |
-| `AWG_JMIN` | Random 40-80 | < JMAX | Minimum junk packet size in bytes |
-| `AWG_JMAX` | Random 500-1000 | ≤ 1280 | Maximum junk packet size in bytes |
+| Variable   | Default         | Constraints             | Description                                                |
+| ---------- | --------------- | ----------------------- | ---------------------------------------------------------- |
+| `AWG_JC`   | Random 3-8      | 1-128, recommended 4-12 | Number of junk packets to send before handshake initiation |
+| `AWG_JMIN` | Random 40-80    | < JMAX                  | Minimum junk packet size in bytes                          |
+| `AWG_JMAX` | Random 500-1000 | ≤ 1280                  | Maximum junk packet size in bytes                          |
 
 #### Packet Padding
 
 Padding bytes are added to handshake and transport messages to obscure their true size.
 
-| Variable | Default | Constraints | Description |
-|----------|---------|-------------|-------------|
-| `AWG_S1` | Random 15-150 | ≤ 1132, S1+56 ≠ S2 | Bytes added to handshake initiation message |
-| `AWG_S2` | Random 15-150 | ≤ 1188, S1+56 ≠ S2 | Bytes added to handshake response message |
-| `AWG_S3` | Random 15-150 (2.0) / 0 (1.5) | - | Bytes added to cookie reply message |
-| `AWG_S4` | Random 15-150 (2.0) / 0 (1.5) | - | Bytes added to transport data messages |
+| Variable | Default                       | Constraints        | Description                                 |
+| -------- | ----------------------------- | ------------------ | ------------------------------------------- |
+| `AWG_S1` | Random 15-150                 | ≤ 1132, S1+56 ≠ S2 | Bytes added to handshake initiation message |
+| `AWG_S2` | Random 15-150                 | ≤ 1188, S1+56 ≠ S2 | Bytes added to handshake response message   |
+| `AWG_S3` | Random 15-150 (2.0) / 0 (1.5) | -                  | Bytes added to cookie reply message         |
+| `AWG_S4` | Random 15-150 (2.0) / 0 (1.5) | -                  | Bytes added to transport data messages      |
 
 #### Header Obfuscation
 
 These values modify the 4-byte type field at the start of each packet, making traffic unrecognizable as WireGuard.
 
-| Variable | Default | Constraints | Description |
-|----------|---------|-------------|-------------|
-| `AWG_H1` | Random | 5-2147483647, must be unique | Header value for handshake initiation |
-| `AWG_H2` | Random | 5-2147483647, must be unique | Header value for handshake response |
-| `AWG_H3` | Random | 5-2147483647, must be unique | Header value for cookie reply |
-| `AWG_H4` | Random | 5-2147483647, must be unique | Header value for transport data |
+| Variable | Default | Constraints                  | Description                           |
+| -------- | ------- | ---------------------------- | ------------------------------------- |
+| `AWG_H1` | Random  | 5-2147483647, must be unique | Header value for handshake initiation |
+| `AWG_H2` | Random  | 5-2147483647, must be unique | Header value for handshake response   |
+| `AWG_H3` | Random  | 5-2147483647, must be unique | Header value for cookie reply         |
+| `AWG_H4` | Random  | 5-2147483647, must be unique | Header value for transport data       |
 
 **Note:** H1-H4 must all be different from each other. AWG 2.0 also supports range format (e.g., `AWG_H1=100-999`) for additional randomization per packet.
 
@@ -170,13 +171,13 @@ These values modify the 4-byte type field at the start of each packet, making tr
 
 Custom Protocol Signature (CPS) packets sent before handshakes to masquerade VPN traffic as other UDP protocols. See [AWG 2.0 Advanced Setup](#awg-20-advanced-setup) for usage details.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable | Default                              | Description                                                   |
+| -------- | ------------------------------------ | ------------------------------------------------------------- |
 | `AWG_I1` | TLS Client Hello (2.0) / empty (1.5) | First signature packet definition (auto-generated in AWG 2.0) |
-| `AWG_I2` | (empty) | Second signature packet (requires I1) |
-| `AWG_I3` | (empty) | Third signature packet (requires I1) |
-| `AWG_I4` | (empty) | Fourth signature packet (requires I1) |
-| `AWG_I5` | (empty) | Fifth signature packet (requires I1) |
+| `AWG_I2` | (empty)                              | Second signature packet (requires I1)                         |
+| `AWG_I3` | (empty)                              | Third signature packet (requires I1)                          |
+| `AWG_I4` | (empty)                              | Fourth signature packet (requires I1)                         |
+| `AWG_I5` | (empty)                              | Fifth signature packet (requires I1)                          |
 
 See [AmneziaWG Kernel Module Configuration](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module#configuration) for official parameter constraints.
 
@@ -186,14 +187,14 @@ For most DPI bypass scenarios, the auto-generated random values work well. AWG 2
 
 ```yaml
 environment:
-  - AWG_VERSION=2.0  # Default; set to 1.5 for legacy clients
-  - AWG_JC=4         # 3-8 recommended
+  - AWG_VERSION=2.0 # Default; set to 1.5 for legacy clients
+  - AWG_JC=4 # 3-8 recommended
   - AWG_JMIN=50
   - AWG_JMAX=1000
   - AWG_S1=86
   - AWG_S2=12
-  - AWG_S3=25        # AWG 2.0 cookie padding
-  - AWG_S4=15        # AWG 2.0 transport padding
+  - AWG_S3=25 # AWG 2.0 cookie padding
+  - AWG_S4=15 # AWG 2.0 transport padding
   - AWG_H1=1755269708
   - AWG_H2=2101520157
   - AWG_H3=1829552136
@@ -212,13 +213,13 @@ For advanced DPI evasion scenarios where standard obfuscation isn't sufficient, 
 
 #### Tag Reference
 
-| Tag | Description | Example |
-|-----|-------------|---------|
-| `<b 0xHEX>` | Static hex bytes | `<b 0x170303>` (TLS 1.2 record header) |
-| `<r N>` | N random bytes (max 1000) | `<r 32>` for 32 random bytes |
-| `<rd N>` | N random digits (0-9) | `<rd 8>` for 8 random digit bytes |
-| `<rc N>` | N random characters (a-zA-Z) | `<rc 16>` for 16 random letter bytes |
-| `<t>` | 32-bit Unix timestamp | Current time |
+| Tag         | Description                  | Example                                |
+| ----------- | ---------------------------- | -------------------------------------- |
+| `<b 0xHEX>` | Static hex bytes             | `<b 0x170303>` (TLS 1.2 record header) |
+| `<r N>`     | N random bytes (max 1000)    | `<r 32>` for 32 random bytes           |
+| `<rd N>`    | N random digits (0-9)        | `<rd 8>` for 8 random digit bytes      |
+| `<rc N>`    | N random characters (a-zA-Z) | `<rc 16>` for 16 random letter bytes   |
+| `<t>`       | 32-bit Unix timestamp        | Current time                           |
 
 #### Example: TLS-like Signature
 
@@ -252,11 +253,11 @@ To create custom signatures that mimic real protocols:
 
 ### LinuxServer Standard
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PUID` | `1000` | User ID for file ownership |
-| `PGID` | `1000` | Group ID for file ownership |
-| `TZ` | `Etc/UTC` | Timezone |
+| Variable | Default   | Description                 |
+| -------- | --------- | --------------------------- |
+| `PUID`   | `1000`    | User ID for file ownership  |
+| `PGID`   | `1000`    | Group ID for file ownership |
+| `TZ`     | `Etc/UTC` | Timezone                    |
 
 ## Configuration
 
@@ -359,12 +360,14 @@ If you're upgrading from the previous simple entrypoint version:
 ### Automatic Migration
 
 The container automatically migrates legacy configs:
+
 - `/config/awg0.conf` → `/config/wg_confs/wg0.conf`
 - `/config/wg0.conf` → `/config/wg_confs/wg0.conf`
 
 ### Manual Migration
 
 1. Update your volume mount:
+
    ```yaml
    # Old
    volumes:
@@ -376,6 +379,7 @@ The container automatically migrates legacy configs:
    ```
 
 2. Move your config file:
+
    ```bash
    mkdir -p ./config/wg_confs
    mv ./awg0.conf ./config/wg_confs/wg0.conf
@@ -396,6 +400,7 @@ sudo modprobe amneziawg
 ```
 
 The container automatically detects support via `ip link add type wireguard`:
+
 1. WireGuard/AmneziaWG kernel module (preferred — if the test succeeds, no userspace binary needed)
 2. `amneziawg-go` userspace (fallback — auto-exported as `WG_QUICK_USERSPACE_IMPLEMENTATION`)
 
@@ -455,22 +460,22 @@ Russia deploys TSPU (Technical Means of Counteracting Threats) equipment at ISP 
 
 **Use a random high port (10000-65535). Avoid the default 51820.**
 
-| Port | Risk Level | Notes |
-|------|------------|-------|
-| 51820 | High | Default WireGuard port, actively fingerprinted |
-| 443/udp | Medium | Works with QUIC-like I1 signatures, but TSPU applies TLS fingerprinting |
-| Random high | Low | Harder for DPI to profile since there is no expected protocol to match |
+| Port        | Risk Level | Notes                                                                   |
+| ----------- | ---------- | ----------------------------------------------------------------------- |
+| 51820       | High       | Default WireGuard port, actively fingerprinted                          |
+| 443/udp     | Medium     | Works with QUIC-like I1 signatures, but TSPU applies TLS fingerprinting |
+| Random high | Low        | Harder for DPI to profile since there is no expected protocol to match  |
 
 ### Server Location
 
 Closer servers with less monitored transit links work best:
 
-| Country | Latency from Moscow | Notes |
-|---------|-------------------|-------|
-| Finland | 20-30ms | Close proximity, generally reliable |
-| Estonia | 25-35ms | Recommended by Amnezia team |
-| Kazakhstan | 15-25ms | Lowest latency, less cross-border filtering |
-| Poland | 35-45ms | Good balance of latency and reliability |
+| Country    | Latency from Moscow | Notes                                       |
+| ---------- | ------------------- | ------------------------------------------- |
+| Finland    | 20-30ms             | Close proximity, generally reliable         |
+| Estonia    | 25-35ms             | Recommended by Amnezia team                 |
+| Kazakhstan | 15-25ms             | Lowest latency, less cross-border filtering |
+| Poland     | 35-45ms             | Good balance of latency and reliability     |
 
 Avoid Netherlands and Germany - heavy filtering reported on major transit links. Prefer smaller regional VPS providers over well-known ones (DigitalOcean, Vultr, Hetzner) whose IP ranges are easier to blacklist.
 
@@ -522,15 +527,15 @@ services:
 
 ### Common Mistakes
 
-| Mistake | Why It Fails |
-|---------|-------------|
-| Using port 51820 | Immediate WireGuard fingerprint match |
-| S1=0, S2=0 | Packet sizes stay at standard WireGuard lengths (148 bytes for Init) |
+| Mistake                           | Why It Fails                                                           |
+| --------------------------------- | ---------------------------------------------------------------------- |
+| Using port 51820                  | Immediate WireGuard fingerprint match                                  |
+| S1=0, S2=0                        | Packet sizes stay at standard WireGuard lengths (148 bytes for Init)   |
 | Same params as a popular tutorial | If many users share identical S/H values, DPI can fingerprint that set |
-| S1 + 56 equals S2 | Response packet size becomes predictable relative to Init |
-| AWG 1.0 on MTS | MTS specifically detects junk packet bursts; upgrade to AWG 2.0 |
-| 24/7 single-connection tunnel | Behavioral analysis flags persistent symmetric traffic |
-| Well-known VPS IP ranges | IPs may be preemptively blocked regardless of protocol |
+| S1 + 56 equals S2                 | Response packet size becomes predictable relative to Init              |
+| AWG 1.0 on MTS                    | MTS specifically detects junk packet bursts; upgrade to AWG 2.0        |
+| 24/7 single-connection tunnel     | Behavioral analysis flags persistent symmetric traffic                 |
+| Well-known VPS IP ranges          | IPs may be preemptively blocked regardless of protocol                 |
 
 ### Tips
 
@@ -546,12 +551,14 @@ services:
 ### No configuration files found
 
 Ensure you either:
+
 - Set `PEERS` environment variable for server mode
 - Place `.conf` files in `./config/wg_confs/`
 
 ### Permission denied
 
 Check that capabilities are set:
+
 ```yaml
 cap_add:
   - NET_ADMIN
@@ -561,11 +568,13 @@ cap_add:
 ### Tunnel fails to start
 
 Check container logs:
+
 ```bash
 docker logs amneziawg
 ```
 
 Verify sysctl settings:
+
 ```yaml
 sysctls:
   - net.ipv4.ip_forward=1
@@ -575,6 +584,7 @@ sysctls:
 ### QR code not displaying
 
 Ensure `LOG_CONFS=true` is set, or use:
+
 ```bash
 docker exec amneziawg /app/show-peer 1 2 3
 ```
