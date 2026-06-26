@@ -16,7 +16,10 @@ services:
     #   dockerfile: Dockerfile
     cap_add:
       - NET_ADMIN
-      - SYS_MODULE
+      # SYS_MODULE is rarely needed — this container doesn't load kernel modules
+      # itself, it only checks if wireguard/amneziawg is already loaded on the host.
+      # Keep it only on minimal hosts that don't auto-load iptables NAT modules.
+      # - SYS_MODULE
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
@@ -45,18 +48,18 @@ services:
       # ---- AmneziaWG Obfuscation (optional - random if not set) ----
       # - AWG_JC=4                          # Junk packet count (3-8 recommended)
       # - AWG_JMIN=50                       # Min junk packet size
-      # - AWG_JMAX=1000                     # Max junk packet size
+      # - AWG_JMAX=180                      # Max junk packet size
       # - AWG_S1=86                         # Init packet padding
       # - AWG_S2=12                         # Response packet padding
-      # - AWG_S3=50                         # Cookie message padding (AWG 2.0, random if unset)
-      # - AWG_S4=50                         # Transport packet padding (AWG 2.0, random if unset)
-      # - AWG_H1=1755269708                 # Header obfuscation
-      # - AWG_H2=2101520157                 # Header obfuscation
-      # - AWG_H3=1829552136                 # Header obfuscation
-      # - AWG_H4=2016351429                 # Header obfuscation
+      # - AWG_S3=25                         # Cookie message padding (AWG 2.0, random if unset)
+      # - AWG_S4=12                         # Transport packet padding (AWG 2.0, random if unset)
+      # - AWG_H1=90666522-140666522         # Header obfuscation range (AWG 2.0)
+      # - AWG_H2=650000000-700000000        # Header obfuscation range (AWG 2.0)
+      # - AWG_H3=1200000000-1250000000      # Header obfuscation range (AWG 2.0)
+      # - AWG_H4=1700000000-1750000000      # Header obfuscation range (AWG 2.0)
 
       # ---- AWG 2.0 Signature Packets (Advanced - leave empty for standard mode) ----
-      # - AWG_I1=<b 0x170303><r 2><b 0x0100><t>  # TLS-like signature
+      # - AWG_I1=<b 0xc3><b 0x00000001><b 0x08><r 8><b 0x00><b 0x00><b 0x449e><r 4><r 1178>  # QUIC Initial
       # - AWG_I2=                                 # Optional second packet
       # - AWG_I3=                                 # Optional third packet
       # - AWG_I4=                                 # Optional fourth packet
@@ -87,7 +90,7 @@ services:
 #     container_name: amneziawg
 #     cap_add:
 #       - NET_ADMIN
-#       - SYS_MODULE
+#       # - SYS_MODULE  # rarely needed, see main config above
 #     environment:
 #       - PUID=1000
 #       - PGID=1000
@@ -118,7 +121,7 @@ services:
 #     container_name: amneziawg
 #     cap_add:
 #       - NET_ADMIN
-#       - SYS_MODULE
+#       # - SYS_MODULE  # rarely needed, see main config above
 #     environment:
 #       - PUID=1000
 #       - PGID=1000

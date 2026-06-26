@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       amneziawg_go_version:
-        description: 'amneziawg-go version (e.g., v0.2.16)'
+        description: 'amneziawg-go version (e.g., v0.2.18)'
         required: false
       amneziawg_tools_version:
         description: 'amneziawg-tools version (e.g., v1.0.20260223)'
@@ -25,7 +25,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   DOCKER_BUILDKIT: 1
   # Default upstream versions — overridden by workflow_dispatch inputs or external trigger
-  AMNEZIAWG_GO_VERSION: v0.2.16
+  AMNEZIAWG_GO_VERSION: v0.2.18
   AMNEZIAWG_TOOLS_VERSION: v1.0.20260223
 
 jobs:
@@ -96,11 +96,12 @@ jobs:
             type=sha,prefix=sha-
 
       - name: Build and push
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ github.workflow }}

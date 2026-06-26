@@ -15,26 +15,26 @@ ListenPort = 51820
 # Junk packets - random data sent before handshakes to confuse traffic analysis
 Jc = 4          # Number of junk packets (1-128)
 Jmin = 50       # Minimum junk packet size in bytes
-Jmax = 1000     # Maximum junk packet size in bytes (max 1280)
+Jmax = 180      # Maximum junk packet size in bytes (max 1280)
 
 # Packet padding - adds bytes to obscure message sizes
 S1 = 86         # Handshake initiation padding (max 1132)
 S2 = 12         # Handshake response padding (max 1188)
-S3 = 0          # Cookie reply padding (AWG 2.0)
-S4 = 0          # Transport data padding (AWG 2.0)
+S3 = 25         # Cookie reply padding (AWG 2.0)
+S4 = 12         # Transport data padding (AWG 2.0)
 
 # Header obfuscation - replaces standard WireGuard type field values
 # Must be unique, range: 5-2147483647. Supports range format: H1 = 100-999
-H1 = 1755269708  # Handshake initiation (replaces WG value 1)
-H2 = 2101520157  # Handshake response (replaces WG value 2)
-H3 = 1829552136  # Cookie reply (replaces WG value 3)
-H4 = 2016351429  # Transport data (replaces WG value 4)
+H1 = 90666522-140666522       # Handshake initiation range
+H2 = 650000000-700000000      # Handshake response range
+H3 = 1200000000-1250000000    # Cookie reply range
+H4 = 1700000000-1750000000    # Transport data range
 
 # AWG 2.0 Custom Protocol Signature packets (optional)
 # Uncomment to send signature packets that mimic other UDP protocols
 # Tags: <b 0xHEX> static bytes, <r N> random bytes, <rd N> random digits,
 #        <rc N> random chars, <t> timestamp
-# I1 = <b 0x160301><r 2><b 0x0100><r 32><t>
+# I1 = <b 0xc3><b 0x00000001><b 0x08><r 8><b 0x00><b 0x00><b 0x449e><r 4><r 1178>
 # I2 =
 # I3 =
 # I4 =

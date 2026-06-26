@@ -64,14 +64,16 @@ services:
       # AWG obfuscation — QUIC-like signature for TSPU bypass
       - AWG_JC=5
       - AWG_JMIN=50
-      - AWG_JMAX=1000
+      - AWG_JMAX=180
       - AWG_S1=68
       - AWG_S2=43
-      - AWG_H1=1009484613
-      - AWG_H2=826498173
-      - AWG_H3=1709786516
-      - AWG_H4=766939893
-      - AWG_I1=<b 0xc0000000><r 16><t>    # QUIC Initial-like
+      - AWG_S3=25
+      - AWG_S4=12
+      - AWG_H1=90666522-140666522
+      - AWG_H2=650000000-700000000
+      - AWG_H3=1200000000-1250000000
+      - AWG_H4=1700000000-1750000000
+      - AWG_I1=<b 0xc3><b 0x00000001><b 0x08><r 8><b 0x00><b 0x00><b 0x449e><r 4><r 1178>    # QUIC Initial
     volumes:
       - ./config:/config
       - /lib/modules:/lib/modules

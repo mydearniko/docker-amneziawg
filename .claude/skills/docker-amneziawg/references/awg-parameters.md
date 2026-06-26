@@ -14,7 +14,7 @@ Random data packets sent before each handshake to confuse traffic analysis.
 |-----------|------|---------|-------------|-------------|
 | `AWG_JC` | int | Random 3-8 | 1-128, recommended 4-12 | Number of junk packets per handshake |
 | `AWG_JMIN` | int | Random 40-80 | < JMAX | Minimum junk packet size in bytes |
-| `AWG_JMAX` | int | Random 500-1000 | ≤ 1280 | Maximum junk packet size in bytes |
+| `AWG_JMAX` | int | Random 80-250 | ≤ 1280 | Maximum junk packet size in bytes |
 
 **How it works**: Before initiating a handshake, the client sends `Jc` packets of random data with sizes between `Jmin` and `Jmax` bytes. This obscures the handshake pattern that DPI systems look for.
 
@@ -28,14 +28,14 @@ Adds padding bytes to different message types to obscure their true size.
 |-----------|------|---------|-------------|--------------|
 | `AWG_S1` | int | Random 15-150 | ≤ 1132 (1280-148) | Handshake initiation |
 | `AWG_S2` | int | Random 15-150 | ≤ 1188 (1280-92) | Handshake response |
-| `AWG_S3` | int | 0 | - | Cookie reply |
-| `AWG_S4` | int | 0 | - | Transport data |
+| `AWG_S3` | int | Random 8-55 (2.0) / 0 (1.5) | ≤ 64 | Cookie reply |
+| `AWG_S4` | int | Random 4-27 (2.0) / 0 (1.5) | ≤ 32 | Transport data (per-packet overhead, keep small) |
 
 **Critical constraint**: `S1 + 56 ≠ S2` (these values must not have this relationship)
 
 **How it works**: Each parameter specifies how many random padding bytes to add to that message type. This prevents DPI from identifying messages by their characteristic sizes.
 
-**Note**: S3 and S4 are typically left at 0 for most use cases. S1 and S2 provide sufficient obfuscation for handshakes.
+**Note**: S3 and S4 are AWG 2.0 extensions (set to 0 in AWG 1.5). S4 should be kept small (4-27) since it adds overhead to every data packet. S3 can be slightly larger (8-55) since cookie replies are rare.
 
 ### Header Obfuscation (H1, H2, H3, H4)
 
@@ -64,19 +64,19 @@ Modifies the 4-byte type field at the start of each packet.
 # Junk packets
 AWG_JC=${AWG_JC:-$(shuf -i 3-8 -n 1)}
 AWG_JMIN=${AWG_JMIN:-$(shuf -i 40-80 -n 1)}
-AWG_JMAX=${AWG_JMAX:-$(shuf -i 500-1000 -n 1)}
+AWG_JMAX=${AWG_JMAX:-$(shuf -i 80-250 -n 1)}
 
 # Padding
 AWG_S1=${AWG_S1:-$(shuf -i 15-150 -n 1)}
 AWG_S2=${AWG_S2:-$(shuf -i 15-150 -n 1)}
-AWG_S3=${AWG_S3:-0}
-AWG_S4=${AWG_S4:-0}
+AWG_S3=${AWG_S3:-$(shuf -i 8-55 -n 1)}   # AWG 2.0
+AWG_S4=${AWG_S4:-$(shuf -i 4-27 -n 1)}   # AWG 2.0, keep small (per-packet)
 
-# Headers (min 5 to avoid collision with standard WireGuard values 1-4)
-AWG_H1=${AWG_H1:-$(shuf -i 5-2147483647 -n 1)}
-AWG_H2=${AWG_H2:-$(shuf -i 5-2147483647 -n 1)}
-AWG_H3=${AWG_H3:-$(shuf -i 5-2147483647 -n 1)}
-AWG_H4=${AWG_H4:-$(shuf -i 5-2147483647 -n 1)}
+# AWG 2.0 headers use non-overlapping ranges so Amnezia apps detect AWG 2.0
+_h1_lo=$(shuf -i 5-486870911 -n 1);          AWG_H1=${AWG_H1:-${_h1_lo}-$((_h1_lo + 50000000))}
+_h2_lo=$(shuf -i 536870912-1023741823 -n 1);  AWG_H2=${AWG_H2:-${_h2_lo}-$((_h2_lo + 50000000))}
+_h3_lo=$(shuf -i 1073741824-1560612735 -n 1); AWG_H3=${AWG_H3:-${_h3_lo}-$((_h3_lo + 50000000))}
+_h4_lo=$(shuf -i 1610612736-2097483647 -n 1); AWG_H4=${AWG_H4:-${_h4_lo}-$((_h4_lo + 50000000))}
 ```
 
 ### Persistence
@@ -86,15 +86,15 @@ Values are saved to `/config/server/awg_params` for consistency across container
 ```
 AWG_JC=5
 AWG_JMIN=62
-AWG_JMAX=847
+AWG_JMAX=180
 AWG_S1=98
 AWG_S2=45
-AWG_S3=0
-AWG_S4=0
-AWG_H1=1755269708
-AWG_H2=2101520157
-AWG_H3=1829552136
-AWG_H4=2016351429
+AWG_S3=25
+AWG_S4=12
+AWG_H1=90666522-140666522
+AWG_H2=650000000-700000000
+AWG_H3=1200000000-1250000000
+AWG_H4=1700000000-1750000000
 ```
 
 ### Config File Format
@@ -108,15 +108,15 @@ PrivateKey = ...
 # AmneziaWG Obfuscation Parameters
 Jc = 5
 Jmin = 62
-Jmax = 847
+Jmax = 180
 S1 = 98
 S2 = 45
-S3 = 0
-S4 = 0
-H1 = 1755269708
-H2 = 2101520157
-H3 = 1829552136
-H4 = 2016351429
+S3 = 25
+S4 = 12
+H1 = 90666522-140666522
+H2 = 650000000-700000000
+H3 = 1200000000-1250000000
+H4 = 1700000000-1750000000
 ```
 
 ## Custom Protocol Signature Packets (I1-I5) - AWG 2.0
@@ -199,14 +199,32 @@ I1 = <b 0xc0><r 4><b 0x00000001><r 16><t>
 
 #### Generation (init-amneziawg-confs/run)
 
+At first startup (when `AWG_I1` is not set), `generate_default_signatures()` sets a QUIC Initial packet —
+the same default used by the Amnezia app itself. The spec is persisted like all other AWG params.
+
 ```bash
-# I1-I5: Custom Protocol Signature packets (AWG 2.0, empty by default)
-AWG_I1=${AWG_I1:-}
-AWG_I2=${AWG_I2:-}
-AWG_I3=${AWG_I3:-}
-AWG_I4=${AWG_I4:-}
-AWG_I5=${AWG_I5:-}
+# QUIC Initial (RFC 9000) ~1200B — Amnezia app default
+AWG_I1="<b 0xc3><b 0x00000001><b 0x08><r 8><b 0x00><b 0x00><b 0x449e><r 4><r 1178>"
 ```
+
+**Packet breakdown:**
+- `<b 0xc3>` — Long Header byte: Initial packet, 4-byte packet number
+- `<b 0x00000001>` — QUIC version 1 (RFC 9000)
+- `<b 0x08><r 8>` — DCID length=8, 8 random bytes (unique per connection)
+- `<b 0x00><b 0x00>` — SCID length=0, token length=0
+- `<b 0x449e>` — 2-byte QUIC length varint = 1182 (packet_number + payload)
+- `<r 4>` — random packet number
+- `<r 1178>` — random encrypted payload (AEAD ciphertext looks random)
+- **Total: 1200 bytes** — meets RFC 9000 §14.1 minimum
+
+**Why QUIC, not TLS ClientHello (0x160301)?** TLS runs over TCP. Sending a TLS record header over UDP
+is anomalous and detectable by DPI systems that validate protocol-transport pairings. QUIC is designed
+for UDP and is what Chrome/Firefox use for HTTPS — a QUIC packet on a UDP port is completely unremarkable.
+
+**For custom protocols** (DNS, DTLS, SIP, HTTP/3): use [AmneziaWG Architect](https://architect.vai-rice.space/)
+to generate a tailored I1 and set it via `AWG_I1=...` in your compose file.
+
+**Supported amneziawg-go tags**: `<b 0xHEX>`, `<r N>`, `<rc N>`, `<rd N>`, `<t>`
 
 #### Config File Output
 
@@ -221,12 +239,15 @@ I1-I5 are only written to config files when set (not empty):
 Values are saved to `/config/server/awg_params`:
 
 ```
-AWG_I1=<b 0x170303><r 2><b 0x0100><t>
+AWG_I1=<b 0xc3><b 0x00000001><b 0x08><r 8><b 0x00><b 0x00><b 0x449e><r 4><r 1178>
 AWG_I2=
 AWG_I3=
 AWG_I4=
 AWG_I5=
 ```
+
+Note: `<r N>` tags are expanded to fresh random bytes at each handshake by amneziawg-go — the spec
+string itself is static, but every connection produces a unique packet.
 
 ### Compatibility Notes
 
@@ -251,5 +272,8 @@ Ensure `JMAX` isn't too large. Very large junk packets may be dropped by some ne
 ## References
 
 - [AmneziaWG Kernel Module Configuration](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module#configuration) - Official parameter constraints
-- [amneziawg-go README](https://github.com/amnezia-vpn/amneziawg-go)
+- [amneziawg-go README](https://github.com/amnezia-vpn/amneziawg-go) — Go userspace implementation; source of truth for supported tags and validation
 - [AmneziaVPN Documentation](https://docs.amnezia.org/)
+- [AmneziaWG Architect](https://architect.vai-rice.space/) ([source](https://github.com/Vadim-Khristenko/AmneziaWG-Architect)) — GUI config generator with 9 protocol presets (QUIC, DTLS, DNS, SIP, HTTP/3…); good reference for realistic I1 packet structures
+- [bivlked/amneziawg-installer](https://github.com/bivlked/amneziawg-installer) — Bare-metal Bash installer; reference for S3/S4/Jmin/Jmax ranges and H1-H4 generation
+- [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) — Multi-server setup script; reference for S3/S4/Jmax ranges
