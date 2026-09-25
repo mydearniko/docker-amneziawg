@@ -61,3 +61,18 @@ data/
 *.tmp
 *.temp
 *.log
+
+# IDE and editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Keys and certificates
+*.key
+*.pem
+*.crt
+*.csr
+*.pfx
+*.p12
